@@ -269,3 +269,11 @@ nav.tabs { display:flex; gap:2px; background:var(--bg-1); border:1px solid var(-
 
 /* FX BADGE */
 .fx-badge { font-size:0.65rem; padding:1px 5px; background:rgba(155,110,245,0.15); color:var(--purple); border-radius:4px; font-family:var(--mono); margin-left:4px; vertical-align:middle; }
+
+/* TRANSACTIONS */
+.tx-type-buy { color:var(--green); }
+.tx-type-sell { color:var(--red); }
+.tx-summary { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
+.tx-stat { display:flex; flex-direction:column; gap:2px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px 18px; }
+.tx-stat-label { font-size:0.7rem; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; color:var(--text-3); }
+.tx-stat-value { font-size:1.1rem; font-weight:600; color:var(--text-1); font-variant-numeric:tabular-nums; }

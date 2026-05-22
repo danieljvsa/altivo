@@ -590,6 +590,7 @@ function showSettingsModal() {
           <div class="setting-row"><div class="setting-label">Switch to Dashboard</div><div><span class="kbd">1</span></div></div>
           <div class="setting-row"><div class="setting-label">Switch to Assets</div><div><span class="kbd">2</span></div></div>
           <div class="setting-row"><div class="setting-label">Switch to Charts</div><div><span class="kbd">3</span></div></div>
+          <div class="setting-row"><div class="setting-label">Switch to Transactions</div><div><span class="kbd">4</span></div></div>
           <div class="setting-row"><div class="setting-label">Close modal</div><div><span class="kbd">Esc</span></div></div>
         </div>
       </div>
@@ -734,6 +735,8 @@ function renderDashboard(portfolio, prices) {
 
 let sortKey = "currentValue", sortDir = -1;
 let tableFilter = "", tableTypeFilter = "";
+let txSortKey = "date", txSortDir = -1;
+let txFilter = "";
 
 function renderTable(portfolio, prices, onEdit, onDelete) {
   const baseCurrency = getBaseCurrency();
@@ -958,9 +961,306 @@ let portfolio = null;
 let prices = {};
 let isLoading = false;
 
+function ensureTransactions() {
+  if (!portfolio.transactions) portfolio.transactions = [];
+}
+
+function addTransaction(data) {
+  ensureTransactions();
+  portfolio.transactions.push(data);
+  savePortfolio(portfolio);
+}
+
+function updateTransaction(id, data) {
+  ensureTransactions();
+  const i = portfolio.transactions.findIndex(t => t.id === id);
+  if (i !== -1) { portfolio.transactions[i] = data; savePortfolio(portfolio); }
+}
+
+function deleteTransaction(id) {
+  ensureTransactions();
+  portfolio.transactions = portfolio.transactions.filter(t => t.id !== id);
+  savePortfolio(portfolio);
+}
+
+function renderTransactions() {
+  const ct = document.getElementById("transactions-content");
+  if (!ct) return;
+  ensureTransactions();
+  const baseCurrency = getBaseCurrency();
+
+  const txs = portfolio.transactions;
+
+  // Filter
+  let filtered = txs;
+  const q = txFilter.toLowerCase();
+  if (q) {
+    filtered = filtered.filter(t =>
+      (t.assetName||"").toLowerCase().includes(q) ||
+      (t.platform||"").toLowerCase().includes(q) ||
+      (t.notes||"").toLowerCase().includes(q)
+    );
+  }
+
+  // Sort
+  filtered = filtered.slice().sort((a, b) => {
+    let va, vb;
+    switch (txSortKey) {
+      case "date": va = a.date; vb = b.date; return txSortDir * va.localeCompare(vb);
+      case "assetName": return txSortDir * (a.assetName||"").localeCompare(b.assetName||"");
+      case "type": return txSortDir * (a.type||"").localeCompare(b.type||"");
+      case "quantity": va = a.quantity; vb = b.quantity; break;
+      case "pricePerUnit": va = a.pricePerUnit; vb = b.pricePerUnit; break;
+      case "totalValue": va = a.totalValue; vb = b.totalValue; break;
+      case "platform": return txSortDir * (a.platform||"").localeCompare(b.platform||"");
+      default: return 0;
+    }
+    return txSortDir * ((va||0) - (vb||0));
+  });
+
+  const th = (key, label) =>
+    `<th data-tx-sort="${key}" class="${txSortKey===key?"sorted":""}">${label} ${txSortKey===key?(txSortDir>0?"↑":"↓"):""}</th>`;
+
+  // Summary
+  const totalBuys = txs.filter(t => t.type === "buy").reduce((s, t) => s + (t.totalValue||0), 0);
+  const totalSells = txs.filter(t => t.type === "sell").reduce((s, t) => s + (t.totalValue||0), 0);
+
+  ct.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+      <div class="tx-summary">
+        <div class="tx-stat">
+          <span class="tx-stat-label">Total Buys</span>
+          <span class="tx-stat-value" style="color:var(--green)">${fmtCurrency(totalBuys, baseCurrency)}</span>
+        </div>
+        <div class="tx-stat">
+          <span class="tx-stat-label">Total Sells</span>
+          <span class="tx-stat-value" style="color:var(--red)">${fmtCurrency(totalSells, baseCurrency)}</span>
+        </div>
+        <div class="tx-stat">
+          <span class="tx-stat-label">Net</span>
+          <span class="tx-stat-value" style="color:${totalBuys-totalSells >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtCurrency(totalBuys - totalSells, baseCurrency)}</span>
+        </div>
+        <div class="tx-stat">
+          <span class="tx-stat-label">Total Transactions</span>
+          <span class="tx-stat-value">${txs.length}</span>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-add-tx">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Transaction
+      </button>
+    </div>
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" id="tx-search" placeholder="Search by asset, platform, notes…" value="${txFilter}">
+      </div>
+      <span class="filter-count">${filtered.length} / ${txs.length} transactions</span>
+    </div>
+    ${txs.length === 0 ? `
+      <div class="empty-state-wrap">
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <p>No transactions yet. Record your buys and sells to track your trading history.</p>
+        <button class="btn btn-primary" onclick="window.showAddTxModal()">Add your first transaction</button>
+      </div>` : `
+    <div class="table-wrapper">
+      <div class="table-responsive">
+        <table class="asset-table">
+          <thead><tr>
+            ${th("date","Date")}
+            ${th("assetName","Asset")}
+            ${th("type","Type")}
+            ${th("quantity","Quantity")}
+            ${th("pricePerUnit","Price/Unit")}
+            ${th("totalValue","Total")}
+            <th>Currency</th>
+            ${th("platform","Platform")}
+            <th>Notes</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody>
+            ${filtered.map(t => {
+              const asset = portfolio.assets.find(a => a.id === t.assetId);
+              const displayName = asset ? asset.name : (t.assetName || "Unknown");
+              return `
+                <tr data-tx-id="${t.id}">
+                  <td style="white-space:nowrap;color:var(--text-1)">${t.date || "—"}</td>
+                  <td>
+                    <span class="asset-name">${displayName}</span>
+                    ${t.assetId && !asset ? '<span style="font-size:0.7rem;color:var(--text-3)">(deleted)</span>' : ""}
+                  </td>
+                  <td><span class="badge ${t.type === "buy" ? "badge-savings" : "badge-p2p"} tx-type-${t.type}">${t.type === "buy" ? "Buy" : "Sell"}</span></td>
+                  <td class="mono" style="color:var(--text-2)">${fmtQty(t.quantity)}</td>
+                  <td class="mono">${fmtCurrency(t.pricePerUnit||0, t.currency)}</td>
+                  <td class="mono" style="font-weight:500">${fmtCurrency(t.totalValue||0, t.currency)}</td>
+                  <td style="color:var(--text-3);font-size:0.8rem">${t.currency || "—"}</td>
+                  <td style="color:var(--text-2);font-size:0.8rem">${t.platform || "—"}</td>
+                  <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;color:var(--text-3);font-size:0.8rem">${t.notes || ""}</td>
+                  <td class="actions-cell">
+                    <button class="btn-icon btn-edit" data-tx-action="edit" data-tx-id="${t.id}" title="Edit">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="btn-icon btn-delete" data-tx-action="delete" data-tx-id="${t.id}" title="Delete">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </td>
+                </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>`}`;
+
+  document.getElementById("btn-add-tx")?.addEventListener("click", () => window.showAddTxModal());
+  document.getElementById("tx-search")?.addEventListener("input", e => {
+    txFilter = e.target.value;
+    renderTransactions();
+  });
+  ct.querySelectorAll("[data-tx-action='edit']").forEach(b => b.addEventListener("click", () => showTxModal(portfolio.transactions.find(t => t.id === b.dataset.txId))));
+  ct.querySelectorAll("[data-tx-action='delete']").forEach(b => b.addEventListener("click", () => {
+    const t = portfolio.transactions.find(t => t.id === b.dataset.txId);
+    if (t) showConfirmModal(`Delete this ${t.type} of <strong>${fmtQty(t.quantity)} ${t.assetName}</strong> from ${t.date}?`, () => {
+      deleteTransaction(t.id);
+      renderTransactions();
+    });
+  }));
+  ct.querySelectorAll("th[data-tx-sort]").forEach(th => th.addEventListener("click", () => {
+    if (txSortKey === th.dataset.txSort) txSortDir *= -1; else { txSortKey = th.dataset.txSort; txSortDir = -1; }
+    renderTransactions();
+  }));
+}
+
+function showTxModal(tx) {
+  const isEdit = tx !== null;
+  const platforms = getPlatforms();
+  const baseCurrency = getBaseCurrency();
+  const assets = portfolio.assets || [];
+
+  const html = `
+    <div class="modal">
+      <div class="modal-header">
+        <h2>${isEdit ? "Edit Transaction" : "Add Transaction"}</h2>
+        <button class="modal-close" id="mc">&times;</button>
+      </div>
+      <form id="tx-form" class="modal-form">
+        <div class="form-group">
+          <label>Asset</label>
+          <select id="tx-asset" required>
+            <option value="">— select asset —</option>
+            ${assets.map(a => `<option value="${a.id}"${tx?.assetId===a.id?" selected":""}>${a.name}${a.ticker ? ` (${a.ticker})` : ""}</option>`).join("")}
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Type</label>
+            <select id="tx-type">
+              <option value="buy"${tx?.type==="buy"?" selected":""}>Buy</option>
+              <option value="sell"${tx?.type==="sell"?" selected":""}>Sell</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="tx-date" value="${tx?.date || new Date().toISOString().split("T")[0]}" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Quantity / Units</label>
+            <input type="number" id="tx-qty" step="any" min="0" value="${tx?.quantity||""}" required placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>Price per Unit</label>
+            <input type="number" id="tx-price" step="any" min="0" value="${tx?.pricePerUnit||""}" required placeholder="0.00">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Total Value</label>
+            <input type="number" id="tx-total" step="any" min="0" value="${tx?.totalValue||""}" placeholder="Auto-calculated" readonly style="opacity:0.7">
+            <span class="form-hint" id="tx-total-hint">Auto-calculated from quantity × price</span>
+          </div>
+          <div class="form-group">
+            <label>Currency</label>
+            <select id="tx-currency">
+              ${CURRENCIES.map(c => `<option value="${c}"${(tx?.currency||baseCurrency)===c?" selected":""}>${c}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Platform / Broker</label>
+          <select id="tx-platform">
+            <option value="">— none —</option>
+            ${platforms.map(p => `<option value="${p}"${tx?.platform===p?" selected":""}>${p}</option>`).join("")}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Notes (optional)</label>
+          <textarea id="tx-notes" placeholder="Any notes about this transaction…">${tx?.notes||""}</textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="mc2">Cancel</button>
+          <button type="submit" class="btn btn-primary">${isEdit ? "Save Changes" : "Add Transaction"}</button>
+        </div>
+      </form>
+    </div>`;
+  showModal(html);
+  document.getElementById("mc").addEventListener("click", hideModal);
+  document.getElementById("mc2").addEventListener("click", hideModal);
+
+  // Auto-calculate total
+  const qtyEl = document.getElementById("tx-qty");
+  const priceEl = document.getElementById("tx-price");
+  const totalEl = document.getElementById("tx-total");
+  function updateTotal() {
+    const q = parseFloat(qtyEl.value) || 0;
+    const p = parseFloat(priceEl.value) || 0;
+    totalEl.value = q * p;
+  }
+  qtyEl.addEventListener("input", updateTotal);
+  priceEl.addEventListener("input", updateTotal);
+
+  // Auto-fill from asset
+  document.getElementById("tx-asset").addEventListener("change", e => {
+    const asset = assets.find(a => a.id === e.target.value);
+    if (asset) {
+      const curEl = document.getElementById("tx-currency");
+      if (!tx) curEl.value = asset.currency || baseCurrency;
+      const platEl = document.getElementById("tx-platform");
+      if (!tx && asset.platform && !platEl.value) platEl.value = asset.platform;
+    }
+  });
+
+  document.getElementById("tx-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const assetEl = document.getElementById("tx-asset");
+    const asset = assets.find(a => a.id === assetEl.value);
+    const data = {
+      id: tx?.id || crypto.randomUUID(),
+      assetId: assetEl.value,
+      assetName: asset ? asset.name : document.getElementById("tx-asset").options[assetEl.selectedIndex]?.text || "Unknown",
+      type: document.getElementById("tx-type").value,
+      date: document.getElementById("tx-date").value,
+      quantity: parseFloat(document.getElementById("tx-qty").value) || 0,
+      pricePerUnit: parseFloat(document.getElementById("tx-price").value) || 0,
+      totalValue: parseFloat(document.getElementById("tx-total").value) || 0,
+      currency: document.getElementById("tx-currency").value,
+      platform: document.getElementById("tx-platform").value || undefined,
+      notes: document.getElementById("tx-notes").value.trim() || undefined,
+      createdAt: tx?.createdAt || new Date().toISOString()
+    };
+    if (isEdit) updateTransaction(data.id, data);
+    else addTransaction(data);
+    hideModal();
+    renderTransactions();
+  });
+}
+
+window.showAddTxModal = function() { showTxModal(null); };
+
 function renderAll() {
   renderDashboard(portfolio, prices);
   renderTable(portfolio, prices, handleEditAsset, handleDeleteAsset);
+  renderTransactions();
   destroyCharts();
   renderCharts(portfolio, prices, loadHistory());
 }
@@ -1024,16 +1324,18 @@ document.addEventListener("keydown", e => {
     case "r": e.preventDefault(); refreshPrices(); break;
     case "1": switchTab("dashboard"); document.querySelector('[data-tab="dashboard"]').click(); break;
     case "2": switchTab("assets"); document.querySelector('[data-tab="assets"]').click(); break;
-    case "3": switchTab("charts"); document.querySelector('[data-tab="charts"]').click(); break;
+        case "3": switchTab("charts"); document.querySelector('[data-tab="charts"]').click(); break;
+    case "4": switchTab("transactions"); document.querySelector('[data-tab="transactions"]').click(); break;
   }
 });
 
 document.addEventListener("DOMContentLoaded", async () => {
   portfolio = loadPortfolio();
   if (!portfolio) {
-    portfolio = { version:1, baseCurrency: getBaseCurrency(), updatedAt: new Date().toISOString(), assets: [] };
+    portfolio = { version:1, baseCurrency: getBaseCurrency(), updatedAt: new Date().toISOString(), assets: [], transactions: [] };
     savePortfolio(portfolio);
   }
+  if (!portfolio.transactions) portfolio.transactions = [];
   portfolio.baseCurrency = getBaseCurrency();
 
   renderAll();
@@ -1046,6 +1348,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         portfolio = await importPortfolio(file);
         portfolio.baseCurrency = getBaseCurrency();
+        if (!portfolio.transactions) portfolio.transactions = [];
         savePortfolio(portfolio); prices = {};
         await refreshPrices();
         showToast("Portfolio imported successfully", "success");
