@@ -1421,6 +1421,8 @@ function showTxModal(tx) {
     };
     if (isEdit) updateTransaction(data.id, data);
     else addTransaction(data);
+    // Use transaction price as current price for the asset
+    if (data.pricePerUnit > 0) prices[data.assetId] = data.pricePerUnit;
     hideModal();
     savePortfolioSnapshot();
     renderAll();
