@@ -165,10 +165,25 @@ function convertToBase(amount, fromCurrency, baseCurrency) {
   return amount / fxRates[fromCurrency];
 }
 
+function getAssetPosition(assetId) {
+  if (!portfolio || !portfolio.transactions) return { quantity: 0, avgBuyPrice: 0, costBasis: 0 };
+  const txs = portfolio.transactions.filter(t => t.assetId === assetId);
+  let buyQty = 0, buyCost = 0, sellQty = 0;
+  for (const t of txs) {
+    if (t.type === "buy") { buyQty += t.quantity; buyCost += t.totalValue; }
+    else if (t.type === "sell") { sellQty += t.quantity; }
+  }
+  const netQty = buyQty - sellQty;
+  const avgBuyPrice = buyQty > 0 ? buyCost / buyQty : 0;
+  const costBasis = netQty * avgBuyPrice;
+  return { quantity: netQty, avgBuyPrice, costBasis };
+}
 function calcGainLoss(asset, currentPrice) {
-  const buyPrice = asset.averageBuyPrice ?? asset.manualPrice ?? 0;
-  const invested = asset.quantity * buyPrice;
-  const currentValue = asset.quantity * currentPrice;
+  const pos = getAssetPosition(asset.id);
+  const qty = pos.quantity || asset.quantity || 0;
+  const buyPrice = pos.avgBuyPrice || asset.averageBuyPrice ?? asset.manualPrice ?? 0;
+  const invested = qty * buyPrice;
+  const currentValue = qty * currentPrice;
   const gainLoss = currentValue - invested;
   const gainLossPercent = invested > 0 ? (gainLoss / invested) * 100 : 0;
   return { invested, currentValue, gainLoss, gainLossPercent };
@@ -186,7 +201,7 @@ function calcPortfolioMetrics(assets, prices, baseCurrency) {
   let totalInvested = 0, totalCurrentValue = 0;
   const assetMetrics = [];
   for (const a of assets) {
-    const cp = prices[a.id] ?? a.manualPrice ?? a.averageBuyPrice ?? 0;
+    const cp = prices[a.id] ?? 0;
     const m = calcGainLossInBase(a, cp, baseCurrency);
     assetMetrics.push({ ...a, currentPrice: cp, ...m });
     totalInvested += m.invested;
@@ -198,8 +213,10 @@ function calcPortfolioMetrics(assets, prices, baseCurrency) {
 }
 function calcAllocation(assets, prices, baseCurrency) {
   const vals = assets.map(a => {
-    const cp = prices[a.id] ?? a.manualPrice ?? a.averageBuyPrice ?? 0;
-    return convertToBase(a.quantity * cp, a.currency, baseCurrency);
+    const cp = prices[a.id] ?? 0;
+    const pos = getAssetPosition(a.id);
+    const qty = pos.quantity || a.quantity || 0;
+    return convertToBase(qty * cp, a.currency, baseCurrency);
   });
   const total = vals.reduce((s, v) => s + v, 0);
   return assets.map((a, i) => ({
@@ -210,8 +227,10 @@ function calcAllocation(assets, prices, baseCurrency) {
 function calcGroupAllocation(assets, prices, baseCurrency, groupFn, labelFn) {
   const tv = {}; let total = 0;
   for (const a of assets) {
-    const cp = prices[a.id] ?? a.manualPrice ?? a.averageBuyPrice ?? 0;
-    const v = convertToBase(a.quantity * cp, a.currency, baseCurrency);
+    const cp = prices[a.id] ?? 0;
+    const pos = getAssetPosition(a.id);
+    const qty = pos.quantity || a.quantity || 0;
+    const v = convertToBase(qty * cp, a.currency, baseCurrency);
     const key = groupFn(a);
     tv[key] = (tv[key] || 0) + v; total += v;
   }
@@ -222,13 +241,13 @@ function calcGroupAllocation(assets, prices, baseCurrency, groupFn, labelFn) {
 }
 function getTopPerformers(assets, prices, n = 3) {
   return assets.map(a => {
-    const cp = prices[a.id] ?? a.manualPrice ?? a.averageBuyPrice ?? 0;
+    const cp = prices[a.id] ?? 0;
     return { name: a.name, ...calcGainLoss(a, cp) };
   }).sort((a, b) => b.gainLossPercent - a.gainLossPercent).slice(0, n);
 }
 function getWorstPerformers(assets, prices, n = 3) {
   return assets.map(a => {
-    const cp = prices[a.id] ?? a.manualPrice ?? a.averageBuyPrice ?? 0;
+    const cp = prices[a.id] ?? 0;
     return { name: a.name, ...calcGainLoss(a, cp) };
   }).sort((a, b) => a.gainLossPercent - b.gainLossPercent).slice(0, n);
 }
@@ -319,7 +338,9 @@ async function fetchAllPrices(assets) {
   }
 
   for (const a of assets.filter(a => !a.provider || a.type === "manual" || a.type === "savings" || a.type === "p2p")) {
-    prices[a.id] = a.manualPrice ?? a.averageBuyPrice ?? 0;
+    if (!(a.id in prices)) {
+      prices[a.id] = a.manualPrice ?? a.averageBuyPrice ?? getAssetPosition(a.id).avgBuyPrice ?? 0;
+    }
   }
 
   return prices;
@@ -371,28 +392,6 @@ function showAssetModal(asset, onSave) {
         <div class="form-group">
           <label>Name</label>
           <input type="text" id="a-name" value="${asset?.name||""}" required placeholder="e.g., Vanguard FTSE All-World">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Quantity / Units</label>
-            <input type="number" id="a-qty" step="any" min="0" value="${asset?.quantity||""}" required placeholder="0">
-          </div>
-          <div class="form-group" id="price-group">
-            <label id="price-label">Avg Buy Price</label>
-            <input type="number" id="a-price" step="any" min="0" value="${asset?.averageBuyPrice??asset?.manualPrice??""}" placeholder="0.00">
-          </div>
-        </div>
-        <div id="interest-group" style="display:none">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Annual Interest Rate (%)</label>
-              <input type="number" id="a-interest" step="0.01" min="0" max="100" value="${asset?.interestRate||""}" placeholder="e.g., 3.5">
-            </div>
-            <div class="form-group">
-              <label>Maturity / End Date</label>
-              <input type="date" id="a-maturity" value="${asset?.maturityDate||""}">
-            </div>
-          </div>
         </div>
         <div id="crypto-fields" style="display:none">
           <div class="form-group">
@@ -456,11 +455,6 @@ function showAssetModal(asset, onSave) {
 function updateAssetFormFields(type) {
   document.getElementById("crypto-fields").style.display = type === "crypto" ? "block" : "none";
   document.getElementById("stock-fields").style.display = (type === "etf" || type === "stock") ? "block" : "none";
-  document.getElementById("interest-group").style.display = (type === "savings" || type === "p2p" || type === "bond") ? "block" : "none";
-  document.getElementById("price-label").textContent = type === "manual" || type === "savings" || type === "p2p" ? "Current Price / Unit" : "Avg Buy Price";
-  const priceInput = document.getElementById("a-price");
-  if (type === "manual" || type === "savings" || type === "p2p") priceInput.removeAttribute("required");
-  else priceInput.setAttribute("required", "");
 }
 
 function collectAssetFormData(asset) {
@@ -468,22 +462,10 @@ function collectAssetFormData(asset) {
   const data = {
     id: asset?.id || crypto.randomUUID(), type,
     name: document.getElementById("a-name").value.trim(),
-    quantity: parseFloat(document.getElementById("a-qty").value) || 0,
     currency: document.getElementById("a-cur").value,
     platform: document.getElementById("a-platform").value || undefined,
     notes: document.getElementById("a-notes").value.trim() || undefined
   };
-  const priceVal = parseFloat(document.getElementById("a-price").value);
-  if (type === "manual" || type === "savings" || type === "p2p") {
-    data.manualPrice = isNaN(priceVal) ? (asset?.manualPrice || 1) : priceVal;
-  } else {
-    if (!isNaN(priceVal)) data.averageBuyPrice = priceVal;
-  }
-  if (type === "savings" || type === "p2p" || type === "bond") {
-    const ir = parseFloat(document.getElementById("a-interest").value);
-    if (!isNaN(ir)) data.interestRate = ir;
-    data.maturityDate = document.getElementById("a-maturity").value || undefined;
-  }
   if (type === "crypto") {
     const pid = document.getElementById("a-provid").value;
     if (pid) {
@@ -761,8 +743,14 @@ function renderTable(portfolio, prices, onEdit, onDelete) {
   });
 
   filtered = filtered.slice().sort((a, b) => {
-    const cpA = prices[a.id] ?? a.manualPrice ?? a.averageBuyPrice ?? 0;
-    const cpB = prices[b.id] ?? b.manualPrice ?? b.averageBuyPrice ?? 0;
+    const cpA = prices[a.id] ?? 0;
+    const cpB = prices[b.id] ?? 0;
+    const posA = getAssetPosition(a.id);
+    const posB = getAssetPosition(b.id);
+    const qtyA = posA.quantity || a.quantity || 0;
+    const qtyB = posB.quantity || b.quantity || 0;
+    const avgA = posA.avgBuyPrice || a.averageBuyPrice ?? a.manualPrice ?? 0;
+    const avgB = posB.avgBuyPrice || b.averageBuyPrice ?? b.manualPrice ?? 0;
     const mA = calcGainLossInBase(a, cpA, baseCurrency);
     const mB = calcGainLossInBase(b, cpB, baseCurrency);
     let va, vb;
@@ -770,8 +758,8 @@ function renderTable(portfolio, prices, onEdit, onDelete) {
       case "name": return sortDir * a.name.localeCompare(b.name);
       case "type": return sortDir * a.type.localeCompare(b.type);
       case "platform": return sortDir * (a.platform||"").localeCompare(b.platform||"");
-      case "qty": va = a.quantity; vb = b.quantity; break;
-      case "avgPrice": va = a.averageBuyPrice??a.manualPrice??0; vb = b.averageBuyPrice??b.manualPrice??0; break;
+      case "qty": va = qtyA; vb = qtyB; break;
+      case "avgPrice": va = avgA; vb = avgB; break;
       case "currentPrice": va = cpA; vb = cpB; break;
       case "invested": va = mA.invested; vb = mB.invested; break;
       case "currentValue": va = mA.currentValue; vb = mB.currentValue; break;
@@ -815,7 +803,10 @@ function renderTable(portfolio, prices, onEdit, onDelete) {
           </tr></thead>
           <tbody>
             ${filtered.map(a => {
-              const cp = prices[a.id] ?? a.manualPrice ?? a.averageBuyPrice ?? 0;
+              const cp = prices[a.id] ?? 0;
+              const pos = getAssetPosition(a.id);
+              const qty = pos.quantity || a.quantity || 0;
+              const avgPrice = pos.avgBuyPrice || a.averageBuyPrice ?? a.manualPrice ?? 0;
               const { invested, currentValue, gainLoss, gainLossPercent } = calcGainLossInBase(a, cp, baseCurrency);
               const gc = gainLoss >= 0 ? "positive" : "negative";
               const fxNote = a.currency !== baseCurrency ? `<span class="fx-badge">${a.currency}</span>` : "";
@@ -829,13 +820,13 @@ function renderTable(portfolio, prices, onEdit, onDelete) {
                   </div></td>
                   <td><span class="badge badge-${a.type}">${TYPE_LABELS[a.type]||a.type}</span></td>
                   <td style="color:var(--text-2)">${a.platform||"—"}</td>
-                  <td class="mono" style="color:var(--text-2)">${fmtQty(a.quantity)}</td>
-                  <td class="mono">${fmtCurrency(a.averageBuyPrice??a.manualPrice??0, a.currency)}${fxNote}</td>
+                  <td class="mono" style="color:var(--text-2)">${fmtQty(qty)}</td>
+                  <td class="mono">${fmtCurrency(avgPrice, a.currency)}${fxNote}</td>
                   <td class="mono" style="color:var(--text-1);font-weight:500">${fmtCurrency(cp, a.currency)}${fxNote}</td>
                   <td class="mono" style="color:var(--text-2)">${fmtCurrency(invested, baseCurrency)}</td>
                   <td class="mono" style="font-weight:500">${fmtCurrency(currentValue, baseCurrency)}</td>
                   <td class="mono ${gc}">${gainLoss>=0?"+":""}${fmtCurrency(gainLoss, baseCurrency)}</td>
-                  <td class="mono ${gc}" style="font-weight:600">${fmtPct(gainLossPercent)}${a.interestRate ? ` <span style="color:var(--text-3);font-weight:400;font-size:0.7rem">(${a.interestRate}%/yr)</span>` : ""}</td>
+                  <td class="mono ${gc}" style="font-weight:600">${fmtPct(gainLossPercent)}</td>
                   <td class="actions-cell">
                     <button class="btn-icon btn-edit" data-action="edit" data-id="${a.id}" title="Edit">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -1121,9 +1112,8 @@ function renderTransactions() {
     const t = portfolio.transactions.find(t => t.id === b.dataset.txId);
     if (t) showConfirmModal(`Delete this ${t.type} of <strong>${fmtQty(t.quantity)} ${t.assetName}</strong> from ${t.date}?`, () => {
       deleteTransaction(t.id);
-      renderTransactions();
-    });
-  }));
+      renderAll();
+    }));
   ct.querySelectorAll("th[data-tx-sort]").forEach(th => th.addEventListener("click", () => {
     if (txSortKey === th.dataset.txSort) txSortDir *= -1; else { txSortKey = th.dataset.txSort; txSortDir = -1; }
     renderTransactions();
@@ -1251,7 +1241,7 @@ function showTxModal(tx) {
     if (isEdit) updateTransaction(data.id, data);
     else addTransaction(data);
     hideModal();
-    renderTransactions();
+    renderAll();
   });
 }
 
@@ -1324,7 +1314,7 @@ document.addEventListener("keydown", e => {
     case "r": e.preventDefault(); refreshPrices(); break;
     case "1": switchTab("dashboard"); document.querySelector('[data-tab="dashboard"]').click(); break;
     case "2": switchTab("assets"); document.querySelector('[data-tab="assets"]').click(); break;
-        case "3": switchTab("charts"); document.querySelector('[data-tab="charts"]').click(); break;
+    case "3": switchTab("charts"); document.querySelector('[data-tab="charts"]').click(); break;
     case "4": switchTab("transactions"); document.querySelector('[data-tab="transactions"]').click(); break;
   }
 });
