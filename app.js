@@ -337,7 +337,7 @@ async function fetchAllPrices(assets) {
     if (p !== null) { prices[a.id] = p; setCachedPrice(a.id, p); }
   }
 
-  for (const a of assets.filter(a => !a.provider || a.type === "manual" || a.type === "savings" || a.type === "p2p")) {
+  for (const a of assets) {
     if (!(a.id in prices)) {
       prices[a.id] = a.manualPrice ?? a.averageBuyPrice ?? getAssetPosition(a.id).avgBuyPrice ?? 0;
     }
