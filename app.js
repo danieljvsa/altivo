@@ -867,7 +867,7 @@ function renderTable(portfolio, prices, onEdit, onDelete) {
                   <td style="color:var(--text-2)">${a.platform||"—"}</td>
                   <td class="mono" style="color:var(--text-2)">${fmtQty(qty)}</td>
                   <td class="mono">${fmtCurrency(avgPrice, a.currency)}${fxNote}</td>
-                  <td class="mono" style="color:var(--text-1);font-weight:500;cursor:pointer" data-action="set-price" data-id="${a.id}" title="Click to set manual price">${fmtCurrency(cp, a.currency)}${fxNote}</td>
+                  <td class="mono" style="color:var(--text-1);font-weight:500;cursor:pointer" data-action="set-price" data-id="${a.id}" title="Click to set manual price">${fmtCurrency(cp, a.currency)}${fxNote} <svg style="width:11px;height:11px;margin-left:2px;opacity:0.35;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></td>
                   <td class="mono" style="color:var(--text-2)">${fmtCurrency(invested, baseCurrency)}</td>
                   <td class="mono" style="font-weight:500">${fmtCurrency(currentValue, baseCurrency)}</td>
                   <td class="mono ${gc}">${gainLoss>=0?"+":""}${fmtCurrency(gainLoss, baseCurrency)}</td>
