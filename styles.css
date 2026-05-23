@@ -1102,6 +1102,7 @@ nav.tabs {
   .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
   .charts-grid { grid-template-columns: 1fr; }
   .chart-card-wide { grid-column: 1; }
+  .table-wrapper { border-radius: var(--radius-md); }
 }
 
 @media (max-width: 768px) {
@@ -1121,12 +1122,51 @@ nav.tabs {
   .btn-group .btn { flex: 1; justify-content: center; }
   .tx-summary { flex-direction: column; }
   .tx-stat { min-width: 0; }
+  .empty-state-wrap { padding: 50px 20px; }
+  .section-header { flex-direction: column; align-items: stretch; }
+  .chart-card { padding: 16px; }
+  .chart-container { height: 220px; }
+  .chart-container-tall { height: 260px; }
+  .asset-table th,
+  .asset-table td { padding: 10px 10px; font-size: 0.8rem; }
+}
+
+@media (max-width: 600px) {
+  .stat-card { padding: 16px; }
+  .stat-value { font-size: 1.375rem; }
+  .setting-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .setting-row select,
+  .setting-row input { width: 100%; }
+  .toast {
+    left: 16px; right: 16px; bottom: 16px;
+    max-width: none;
+    justify-content: center;
+  }
+  .btn { font-size: 0.725rem; padding: 6px 10px; gap: 5px; }
+  .btn svg { width: 12px; height: 12px; }
+  .header-actions .btn span.btn-label { display: none; }
+  #btn-add-asset { font-size: 0.775rem; padding: 7px 12px; }
+  #btn-add-asset svg { width: 14px; height: 14px; }
 }
 
 @media (max-width: 480px) {
-  .app { padding: 14px 14px 60px; }
-  .stat-value { font-size: 1.4rem; }
+  .app { padding: 12px 12px 60px; }
+  .header-actions { gap: 5px; }
+  .logo-icon { width: 32px; height: 32px; }
+  .logo-text h1 { font-size: 0.95rem; }
+  .logo-text span { font-size: 0.7rem; }
+  .stat-value { font-size: 1.25rem; }
+  .stat-card { padding: 14px; }
   .dashboard-grid { gap: 10px; }
+  .modal { margin: 8px; max-width: 100%; }
+  .modal-header { padding: 14px 16px; }
+  .modal-body { padding: 16px; }
+  .modal-form { padding: 16px; }
+  .modal-actions { padding: 12px 16px; }
+  .chart-card { padding: 14px; }
+  .chart-container { height: 200px; }
+  .stat-sub { font-size: 0.7rem; }
+  .empty-state-wrap { padding: 36px 16px; }
 }
 
 /* ═══════════════════════════════════════════════════════════
