@@ -867,7 +867,7 @@ function renderTable(portfolio, prices, onEdit, onDelete) {
                   <td style="color:var(--text-2)">${a.platform||"—"}</td>
                   <td class="mono" style="color:var(--text-2)">${fmtQty(qty)}</td>
                   <td class="mono">${fmtCurrency(avgPrice, a.currency)}${fxNote}</td>
-                  <td class="mono" style="color:var(--text-1);font-weight:500">${fmtCurrency(cp, a.currency)}${fxNote}</td>
+                  <td class="mono" style="color:var(--text-1);font-weight:500;cursor:pointer" data-action="set-price" data-id="${a.id}" title="Click to set manual price">${fmtCurrency(cp, a.currency)}${fxNote}</td>
                   <td class="mono" style="color:var(--text-2)">${fmtCurrency(invested, baseCurrency)}</td>
                   <td class="mono" style="font-weight:500">${fmtCurrency(currentValue, baseCurrency)}</td>
                   <td class="mono ${gc}">${gainLoss>=0?"+":""}${fmtCurrency(gainLoss, baseCurrency)}</td>
@@ -898,10 +898,57 @@ function renderTable(portfolio, prices, onEdit, onDelete) {
   });
   ct.querySelectorAll("[data-action='edit']").forEach(b => b.addEventListener("click", () => onEdit(b.dataset.id)));
   ct.querySelectorAll("[data-action='delete']").forEach(b => b.addEventListener("click", () => onDelete(b.dataset.id)));
+  ct.querySelectorAll("[data-action='set-price']").forEach(el => el.addEventListener("click", () => {
+    const asset = portfolio.assets.find(a => a.id === el.dataset.id);
+    if (asset) showPriceModal(asset);
+  }));
   ct.querySelectorAll("th[data-sort]").forEach(th => th.addEventListener("click", () => {
     if (sortKey === th.dataset.sort) sortDir *= -1; else { sortKey = th.dataset.sort; sortDir = -1; }
     renderTable(portfolio, prices, onEdit, onDelete);
   }));
+}
+
+function showPriceModal(asset) {
+  const cp = prices[asset.id] ?? 0;
+  const hasManual = asset.manualPrice !== undefined && asset.manualPrice !== null;
+  showModal(`
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2>Set Price: ${asset.name}</h2>
+        <button class="modal-close" id="mc">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Price per Unit (${asset.currency || 'EUR'})</label>
+          <input type="number" id="mp-price" step="any" min="0" value="${cp}" autofocus>
+          <span class="form-hint">Used as fallback when no API price is available</span>
+        </div>
+        ${hasManual ? `<p style="margin-top:12px"><button class="btn btn-ghost" id="mp-clear" style="color:var(--red)">Clear manual price (use API)</button></p>` : ''}
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="mc2">Cancel</button>
+        <button class="btn btn-primary" id="mp-save">Save</button>
+      </div>
+    </div>`);
+  document.getElementById("mc").addEventListener("click", hideModal);
+  document.getElementById("mc2").addEventListener("click", hideModal);
+  document.getElementById("mp-save").addEventListener("click", () => {
+    const val = parseFloat(document.getElementById("mp-price").value);
+    if (!isNaN(val) && val > 0) {
+      asset.manualPrice = val;
+    } else {
+      delete asset.manualPrice;
+    }
+    savePortfolio(portfolio);
+    hideModal();
+    renderAll();
+  });
+  document.getElementById("mp-clear")?.addEventListener("click", () => {
+    delete asset.manualPrice;
+    savePortfolio(portfolio);
+    hideModal();
+    renderAll();
+  });
 }
 
 let allocChart = null, typeChart = null, platformChart = null, evoChart = null;
