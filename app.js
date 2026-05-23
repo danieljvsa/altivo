@@ -867,12 +867,15 @@ function renderTable(portfolio, prices, onEdit, onDelete) {
                   <td style="color:var(--text-2)">${a.platform||"—"}</td>
                   <td class="mono" style="color:var(--text-2)">${fmtQty(qty)}</td>
                   <td class="mono">${fmtCurrency(avgPrice, a.currency)}${fxNote}</td>
-                  <td class="mono" style="color:var(--text-1);font-weight:500;cursor:pointer" data-action="set-price" data-id="${a.id}" title="Click to set manual price">${fmtCurrency(cp, a.currency)}${fxNote} <svg style="width:11px;height:11px;margin-left:2px;opacity:0.35;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></td>
+                  <td class="mono" style="color:var(--text-1);font-weight:500">${fmtCurrency(cp, a.currency)}${fxNote}${a.manualPrice ? '<span style="font-size:0.65rem;color:var(--text-3);margin-left:3px">●</span>' : ''}</td>
                   <td class="mono" style="color:var(--text-2)">${fmtCurrency(invested, baseCurrency)}</td>
                   <td class="mono" style="font-weight:500">${fmtCurrency(currentValue, baseCurrency)}</td>
                   <td class="mono ${gc}">${gainLoss>=0?"+":""}${fmtCurrency(gainLoss, baseCurrency)}</td>
                   <td class="mono ${gc}" style="font-weight:600">${fmtPct(gainLossPercent)}</td>
                   <td class="actions-cell">
+                    <button class="btn-icon btn-price" data-action="set-price" data-id="${a.id}" title="Set manual price">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </button>
                     <button class="btn-icon btn-edit" data-action="edit" data-id="${a.id}" title="Edit">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
@@ -923,7 +926,12 @@ function showPriceModal(asset) {
           <input type="number" id="mp-price" step="any" min="0" value="${cp}" autofocus>
           <span class="form-hint">Used as fallback when no API price is available</span>
         </div>
-        ${hasManual ? `<p style="margin-top:12px"><button class="btn btn-ghost" id="mp-clear" style="color:var(--red)">Clear manual price (use API)</button></p>` : ''}
+        <div class="form-group">
+          <label>Date (optional)</label>
+          <input type="date" id="mp-date" value="${asset.manualPriceDate || ''}">
+          <span class="form-hint">When this price was observed</span>
+        </div>
+        ${hasManual ? `<p style="margin-top:12px"><button class="btn btn-ghost" id="mp-clear" style="color:var(--red)">Clear manual price</button></p>` : ''}
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="mc2">Cancel</button>
@@ -934,10 +942,14 @@ function showPriceModal(asset) {
   document.getElementById("mc2").addEventListener("click", hideModal);
   document.getElementById("mp-save").addEventListener("click", () => {
     const val = parseFloat(document.getElementById("mp-price").value);
+    const dateVal = document.getElementById("mp-date").value;
     if (!isNaN(val) && val > 0) {
       asset.manualPrice = val;
+      if (dateVal) asset.manualPriceDate = dateVal;
+      else delete asset.manualPriceDate;
     } else {
       delete asset.manualPrice;
+      delete asset.manualPriceDate;
     }
     savePortfolio(portfolio);
     hideModal();
@@ -945,6 +957,7 @@ function showPriceModal(asset) {
   });
   document.getElementById("mp-clear")?.addEventListener("click", () => {
     delete asset.manualPrice;
+    delete asset.manualPriceDate;
     savePortfolio(portfolio);
     hideModal();
     renderAll();

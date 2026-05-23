@@ -161,6 +161,8 @@ nav.tabs { display:flex; gap:2px; background:var(--bg-1); border:1px solid var(-
 .btn-icon svg { width:15px; height:15px; }
 .btn-edit { color:var(--blue); }
 .btn-edit:hover { background:var(--blue-dim); border-color:rgba(79,142,247,0.3); }
+.btn-price { color:var(--green); }
+.btn-price:hover { background:var(--green-dim); border-color:rgba(52,211,153,0.3); }
 .btn-delete { color:var(--red); }
 .btn-delete:hover { background:var(--red-dim); border-color:rgba(245,101,101,0.3); }
 
