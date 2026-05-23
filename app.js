@@ -1158,7 +1158,8 @@ function renderTransactions() {
     if (t) showConfirmModal(`Delete this ${t.type} of <strong>${fmtQty(t.quantity)} ${t.assetName}</strong> from ${t.date}?`, () => {
       deleteTransaction(t.id);
       renderAll();
-    }));
+    });
+  }));
   ct.querySelectorAll("th[data-tx-sort]").forEach(th => th.addEventListener("click", () => {
     if (txSortKey === th.dataset.txSort) txSortDir *= -1; else { txSortKey = th.dataset.txSort; txSortDir = -1; }
     renderTransactions();
