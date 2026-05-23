@@ -523,6 +523,11 @@ function collectAssetFormData(asset) {
     data.provider = "yahoo";
     data.ticker = document.getElementById("a-ticker").value.trim().toUpperCase() || undefined;
   }
+  if (asset) {
+    if (asset.priceHistory) data.priceHistory = asset.priceHistory;
+    if (asset.manualPrice !== undefined) data.manualPrice = asset.manualPrice;
+    if (asset.manualPriceDate) data.manualPriceDate = asset.manualPriceDate;
+  }
   return data;
 }
 
@@ -945,8 +950,11 @@ function showPriceModal(asset) {
     const dateVal = document.getElementById("mp-date").value;
     if (!isNaN(val) && val > 0) {
       asset.manualPrice = val;
+      const date = dateVal || new Date().toISOString().slice(0, 10);
       if (dateVal) asset.manualPriceDate = dateVal;
       else delete asset.manualPriceDate;
+      if (!asset.priceHistory) asset.priceHistory = [];
+      asset.priceHistory.push({ price: val, date, timestamp: Date.now() });
     } else {
       delete asset.manualPrice;
       delete asset.manualPriceDate;
@@ -1357,6 +1365,7 @@ function renderAll() {
   renderDashboard(portfolio, prices);
   renderTable(portfolio, prices, handleEditAsset, handleDeleteAsset);
   renderTransactions();
+  renderPriceHistory();
   destroyCharts();
   renderCharts(portfolio, prices, loadHistory());
 }
@@ -1411,6 +1420,56 @@ function switchTab(tab) {
   if (tab === "charts") { destroyCharts(); renderCharts(portfolio, prices, loadHistory()); }
 }
 
+function renderPriceHistory() {
+  const el = document.getElementById("price-history-content");
+  const assets = portfolio.assets;
+  if (assets.length === 0) {
+    el.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:60px"><p>No assets yet. Add some assets to track price history.</p></div>`;
+    return;
+  }
+  const selId = (el._selectedAssetId && assets.find(a => a.id === el._selectedAssetId)) ? el._selectedAssetId : assets[0].id;
+  const asset = assets.find(a => a.id === selId);
+  const history = asset?.priceHistory || [];
+  el.innerHTML = `
+    <div class="section-header">
+      <h2>Price History</h2>
+      <div class="form-group" style="margin:0;min-width:260px">
+        <select id="ph-asset">
+          ${assets.map(a => `<option value="${a.id}"${a.id===selId?" selected":""}>${a.name}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      ${history.length === 0
+        ? `<p style="text-align:center;color:var(--text-3);padding:40px">No manual price entries for this asset yet.</p>`
+        : `<table class="table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Price</th>
+                <th>Currency</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${[...history].reverse().map(e => `
+                <tr>
+                  <td>${e.date}</td>
+                  <td class="mono" style="font-weight:500">${fmtCurrency(e.price, asset.currency)}</td>
+                  <td>${asset.currency || 'EUR'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>`
+      }
+    </div>`;
+  const sel = document.getElementById("ph-asset");
+  if (sel) {
+    sel.addEventListener("change", () => {
+      el._selectedAssetId = sel.value;
+      renderPriceHistory();
+    });
+  }
+}
+
 document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -1422,6 +1481,7 @@ document.addEventListener("keydown", e => {
     case "2": switchTab("assets"); document.querySelector('[data-tab="assets"]').click(); break;
     case "3": switchTab("charts"); document.querySelector('[data-tab="charts"]').click(); break;
     case "4": switchTab("transactions"); document.querySelector('[data-tab="transactions"]').click(); break;
+    case "5": switchTab("history"); document.querySelector('[data-tab="history"]').click(); break;
   }
 });
 
@@ -1433,6 +1493,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   if (!portfolio.transactions) portfolio.transactions = [];
   portfolio.baseCurrency = getBaseCurrency();
+  // migrate manualPrice -> priceHistory
+  portfolio.assets.forEach(a => {
+    if (!a.priceHistory) a.priceHistory = [];
+    if ((a.manualPrice !== undefined && a.manualPrice !== null) && a.priceHistory.length === 0) {
+      a.priceHistory.push({ price: a.manualPrice, date: a.manualPriceDate || new Date().toISOString().slice(0,10), timestamp: Date.now() });
+    }
+  });
 
   renderAll();
 
