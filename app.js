@@ -102,6 +102,27 @@ function saveHistoryEntry(val) {
     localStorage.setItem(HK, JSON.stringify(h));
   } catch {}
 }
+function saveAssetValueSnapshots() {
+  const baseCurrency = getBaseCurrency();
+  const now = new Date().toISOString();
+  for (const a of portfolio.assets) {
+    const cp = prices[a.id] ?? 0;
+    const { currentValue } = calcGainLossInBase(a, cp, baseCurrency);
+    if (!a.valueHistory) a.valueHistory = [];
+    const last = a.valueHistory[a.valueHistory.length - 1];
+    if (last && (Date.now() - new Date(last.date).getTime() < 30 * 60 * 1000)) {
+      a.valueHistory[a.valueHistory.length - 1] = { date: now, value: currentValue };
+    } else {
+      a.valueHistory.push({ date: now, value: currentValue });
+    }
+    if (a.valueHistory.length > 720) a.valueHistory.splice(0, a.valueHistory.length - 720);
+  }
+}
+function savePortfolioSnapshot() {
+  const m = calcPortfolioMetrics(portfolio.assets, prices, getBaseCurrency());
+  if (m.totalCurrentValue > 0) saveHistoryEntry(m.totalCurrentValue);
+  saveAssetValueSnapshots();
+}
 
 function exportPortfolio(p) {
   const blob = new Blob([JSON.stringify(p, null, 2)], { type:"application/json" });
@@ -950,6 +971,7 @@ function showPriceModal(asset) {
     const dateVal = document.getElementById("mp-date").value;
     if (!isNaN(val) && val > 0) {
       asset.manualPrice = val;
+      prices[asset.id] = val;
       const date = dateVal || new Date().toISOString().slice(0, 10);
       if (dateVal) asset.manualPriceDate = dateVal;
       else delete asset.manualPriceDate;
@@ -958,26 +980,30 @@ function showPriceModal(asset) {
     } else {
       delete asset.manualPrice;
       delete asset.manualPriceDate;
+      delete prices[asset.id];
     }
     savePortfolio(portfolio);
+    savePortfolioSnapshot();
     hideModal();
     renderAll();
   });
   document.getElementById("mp-clear")?.addEventListener("click", () => {
     delete asset.manualPrice;
     delete asset.manualPriceDate;
+    delete prices[asset.id];
     savePortfolio(portfolio);
+    savePortfolioSnapshot();
     hideModal();
     renderAll();
   });
 }
 
-let allocChart = null, typeChart = null, platformChart = null, evoChart = null;
+let allocChart = null, typeChart = null, platformChart = null, evoChart = null, assetEvoChart = null;
 const TOOLTIP = { backgroundColor:"#141926", titleColor:"#e8eaf2", bodyColor:"#8892b0", borderColor:"rgba(99,120,180,0.22)", borderWidth:1, cornerRadius:10, padding:12 };
 
 function destroyCharts() {
-  [allocChart, typeChart, platformChart, evoChart].forEach(c => { if(c) { try { c.destroy(); } catch {} } });
-  allocChart = typeChart = platformChart = evoChart = null;
+  [allocChart, typeChart, platformChart, evoChart, assetEvoChart].forEach(c => { if(c) { try { c.destroy(); } catch {} } });
+  allocChart = typeChart = platformChart = evoChart = assetEvoChart = null;
 }
 
 function renderCharts(portfolio, prices, history) {
@@ -986,6 +1012,7 @@ function renderCharts(portfolio, prices, history) {
   renderTypeChart(portfolio, prices, baseCurrency);
   renderPlatformChart(portfolio, prices, baseCurrency);
   renderEvoChart(history, baseCurrency);
+  renderAssetEvoChart(portfolio, baseCurrency);
 }
 
 function makeDoughnut(ctxId, labels, data, currency, chartRef) {
@@ -1050,6 +1077,46 @@ function renderEvoChart(history, baseCurrency) {
       scales:{ x:{grid:{display:false}, ticks:{color:"#8892b0",font:{size:11},maxTicksLimit:12}}, y:{grid:{color:"rgba(99,120,180,0.07)"}, ticks:{color:"#8892b0",font:{size:11},callback:v=>fmtCompact(v,baseCurrency)}, border:{display:false}} }
     }
   });
+}
+
+function renderAssetEvoChart(portfolio, baseCurrency) {
+  const el = document.getElementById("asset-evolution-chart"); if (!el) return;
+  if (assetEvoChart) assetEvoChart.destroy();
+  const sel = document.getElementById("asset-evo-select");
+  if (!sel) return;
+  const prevSel = sel._selected;
+  sel.innerHTML = `<option value="">— select an asset —</option>` + portfolio.assets.map(a =>
+    `<option value="${a.id}"${a.id === prevSel ? " selected" : ""}>${a.name}</option>`
+  ).join("");
+  const assetId = sel.value || portfolio.assets[0]?.id;
+  if (!assetId) { el.parentElement.innerHTML = '<div class="chart-empty">Add assets and set prices to see value history.</div>'; return; }
+  sel._selected = assetId;
+  sel.value = assetId;
+  const asset = portfolio.assets.find(a => a.id === assetId);
+  if (!asset) return;
+  const vh = asset.valueHistory || [];
+  if (vh.length < 2) { el.parentElement.innerHTML = '<div class="chart-empty">Not enough data points yet. Each price refresh or manual price update records a snapshot.</div>'; return; }
+  const daily = {};
+  for (const h of vh) {
+    const day = h.date.split("T")[0];
+    daily[day] = h.value;
+  }
+  const entries = Object.entries(daily).sort(([a],[b]) => a.localeCompare(b));
+  const labels = entries.map(([d]) => { const dt = new Date(d); return dt.toLocaleDateString("en-GB",{day:"2-digit",month:"short"}); });
+  const values = entries.map(([,v]) => v);
+  assetEvoChart = new Chart(el, {
+    type:"line",
+    data:{ labels, datasets:[{ label:asset.name, data:values, borderColor:"#9b6ef5", backgroundColor:"rgba(155,110,245,0.07)", fill:true, tension:0.4, pointRadius:values.length > 30 ? 0 : 2, pointHoverRadius:5, borderWidth:2, pointBackgroundColor:"#9b6ef5" }] },
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:"index",intersect:false},
+      plugins:{ legend:{display:false}, tooltip:{...TOOLTIP, callbacks:{ label:c=>` ${fmtCurrency(c.parsed.y,baseCurrency)}` }} },
+      scales:{ x:{grid:{display:false}, ticks:{color:"#8892b0",font:{size:11},maxTicksLimit:12}}, y:{grid:{color:"rgba(99,120,180,0.07)"}, ticks:{color:"#8892b0",font:{size:11},callback:v=>fmtCompact(v,baseCurrency)}, border:{display:false}} }
+    }
+  });
+  sel.addEventListener("change", () => {
+    sel._selected = sel.value;
+    if (assetEvoChart) assetEvoChart.destroy();
+    renderAssetEvoChart(portfolio, baseCurrency);
+  }, { once: true });
 }
 
 function showToast(msg, type = "info") {
@@ -1355,6 +1422,7 @@ function showTxModal(tx) {
     if (isEdit) updateTransaction(data.id, data);
     else addTransaction(data);
     hideModal();
+    savePortfolioSnapshot();
     renderAll();
   });
 }
@@ -1378,8 +1446,7 @@ async function refreshPrices() {
   try {
     await fetchFxRates(getBaseCurrency());
     prices = await fetchAllPrices(portfolio.assets);
-    const m = calcPortfolioMetrics(portfolio.assets, prices, getBaseCurrency());
-    saveHistoryEntry(m.totalCurrentValue);
+    savePortfolioSnapshot();
     renderAll();
     showToast("Prices updated", "success");
   } catch (e) {
@@ -1410,7 +1477,7 @@ function handleDeleteAsset(id) {
   const a = portfolio.assets.find(x => x.id === id); if (!a) return;
   showConfirmModal(`Delete "<strong>${a.name}</strong>"? This cannot be undone.`, async () => {
     portfolio.assets = portfolio.assets.filter(x => x.id !== id);
-    savePortfolio(portfolio); delete prices[id]; renderAll();
+    savePortfolio(portfolio); delete prices[id]; savePortfolioSnapshot(); renderAll();
   });
 }
 
