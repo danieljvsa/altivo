@@ -12,86 +12,164 @@
 </head>
 <body>
 <div class="app">
+
+  <!-- ── HEADER ── -->
   <header>
     <div class="logo">
       <div class="logo-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
         </svg>
       </div>
-      <div>
+      <div class="logo-text">
         <h1>Portfolio Command Center</h1>
         <span id="header-subtitle">Loading…</span>
       </div>
     </div>
+
+    <div class="header-center" id="header-status"></div>
+
     <div class="header-actions">
       <button class="btn btn-primary" id="btn-add-asset">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
         Add Asset
       </button>
-      <button class="btn btn-ghost" id="btn-refresh">
-        <svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        Refresh
-      </button>
-      <button class="btn btn-ghost" id="btn-export">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Export
-      </button>
-      <button class="btn btn-ghost" id="btn-import">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Import
-      </button>
+      <div class="btn-group">
+        <button class="btn btn-ghost" id="btn-refresh" title="Refresh prices (R)">
+          <svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+          Refresh
+        </button>
+        <button class="btn btn-ghost" id="btn-export" title="Export portfolio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Export
+        </button>
+        <button class="btn btn-ghost" id="btn-import" title="Import portfolio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Import
+        </button>
+      </div>
       <button class="btn-icon-only" id="btn-settings" title="Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
       </button>
     </div>
   </header>
 
-  <nav class="tabs">
-    <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
-    <button class="tab-btn" data-tab="assets">Assets</button>
-    <button class="tab-btn" data-tab="transactions">Transactions</button>
-    <button class="tab-btn" data-tab="history">History</button>
-    <button class="tab-btn" data-tab="charts">Charts</button>
+  <!-- ── TABS ── -->
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn active" data-tab="dashboard" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      Dashboard
+    </button>
+    <button class="tab-btn" data-tab="assets" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+      </svg>
+      Assets
+    </button>
+    <button class="tab-btn" data-tab="transactions" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="17 1 21 5 17 9"/>
+        <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+        <polyline points="7 23 3 19 7 15"/>
+        <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+      </svg>
+      Transactions
+    </button>
+    <button class="tab-btn" data-tab="history" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      History
+    </button>
+    <button class="tab-btn" data-tab="charts" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      Charts
+    </button>
   </nav>
 
+  <!-- ── MAIN CONTENT ── -->
   <main>
-    <section id="tab-dashboard" class="tab-content active">
+    <section id="tab-dashboard" class="tab-content active" role="tabpanel">
       <div id="dashboard-content"></div>
     </section>
-    <section id="tab-assets" class="tab-content">
+
+    <section id="tab-assets" class="tab-content" role="tabpanel">
       <div id="table-content"></div>
     </section>
-    <section id="tab-transactions" class="tab-content">
+
+    <section id="tab-transactions" class="tab-content" role="tabpanel">
       <div id="transactions-content"></div>
     </section>
-    <section id="tab-history" class="tab-content">
+
+    <section id="tab-history" class="tab-content" role="tabpanel">
       <div id="price-history-content"></div>
     </section>
-    <section id="tab-charts" class="tab-content">
+
+    <section id="tab-charts" class="tab-content" role="tabpanel">
       <div class="charts-grid">
         <div class="chart-card">
-          <h3>Asset Allocation</h3>
+          <div class="chart-card-header">
+            <h3>Asset Allocation</h3>
+            <span class="chart-badge">by value</span>
+          </div>
           <div class="chart-container"><canvas id="allocation-chart"></canvas></div>
         </div>
         <div class="chart-card">
-          <h3>By Type</h3>
+          <div class="chart-card-header">
+            <h3>By Type</h3>
+            <span class="chart-badge">distribution</span>
+          </div>
           <div class="chart-container"><canvas id="type-chart"></canvas></div>
         </div>
         <div class="chart-card">
-          <h3>By Platform</h3>
+          <div class="chart-card-header">
+            <h3>By Platform</h3>
+            <span class="chart-badge">brokers</span>
+          </div>
           <div class="chart-container"><canvas id="platform-chart"></canvas></div>
         </div>
-        <div class="chart-card" style="grid-column:1/-1">
-          <h3>Portfolio Evolution</h3>
-          <div class="chart-container"><canvas id="evolution-chart"></canvas></div>
+        <div class="chart-card chart-card-wide">
+          <div class="chart-card-header">
+            <h3>Portfolio Evolution</h3>
+            <span class="chart-badge">over time</span>
+          </div>
+          <div class="chart-container chart-container-tall"><canvas id="evolution-chart"></canvas></div>
         </div>
       </div>
     </section>
   </main>
+
 </div>
 
-<div id="modal-overlay"><div id="modal-container"></div></div>
+<!-- ── MODAL ── -->
+<div id="modal-overlay" role="dialog" aria-modal="true">
+  <div id="modal-container"></div>
+</div>
 
 <script src="app.js"></script>
 </body>
