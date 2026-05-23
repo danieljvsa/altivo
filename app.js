@@ -181,7 +181,7 @@ function getAssetPosition(assetId) {
 function calcGainLoss(asset, currentPrice) {
   const pos = getAssetPosition(asset.id);
   const qty = pos.quantity || asset.quantity || 0;
-  const buyPrice = pos.avgBuyPrice || asset.averageBuyPrice ?? asset.manualPrice ?? 0;
+  const buyPrice = pos.avgBuyPrice || (asset.averageBuyPrice ?? asset.manualPrice ?? 0);
   const invested = qty * buyPrice;
   const currentValue = qty * currentPrice;
   const gainLoss = currentValue - invested;
@@ -794,8 +794,8 @@ function renderTable(portfolio, prices, onEdit, onDelete) {
     const posB = getAssetPosition(b.id);
     const qtyA = posA.quantity || a.quantity || 0;
     const qtyB = posB.quantity || b.quantity || 0;
-    const avgA = posA.avgBuyPrice || a.averageBuyPrice ?? a.manualPrice ?? 0;
-    const avgB = posB.avgBuyPrice || b.averageBuyPrice ?? b.manualPrice ?? 0;
+    const avgA = posA.avgBuyPrice || (a.averageBuyPrice ?? a.manualPrice ?? 0);
+    const avgB = posB.avgBuyPrice || (b.averageBuyPrice ?? b.manualPrice ?? 0);
     const mA = calcGainLossInBase(a, cpA, baseCurrency);
     const mB = calcGainLossInBase(b, cpB, baseCurrency);
     let va, vb;
@@ -851,7 +851,7 @@ function renderTable(portfolio, prices, onEdit, onDelete) {
               const cp = prices[a.id] ?? 0;
               const pos = getAssetPosition(a.id);
               const qty = pos.quantity || a.quantity || 0;
-              const avgPrice = pos.avgBuyPrice || a.averageBuyPrice ?? a.manualPrice ?? 0;
+              const avgPrice = pos.avgBuyPrice || (a.averageBuyPrice ?? a.manualPrice ?? 0);
               const { invested, currentValue, gainLoss, gainLossPercent } = calcGainLossInBase(a, cp, baseCurrency);
               const gc = gainLoss >= 0 ? "positive" : "negative";
               const fxNote = a.currency !== baseCurrency ? `<span class="fx-badge">${a.currency}</span>` : "";
