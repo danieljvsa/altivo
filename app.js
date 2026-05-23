@@ -346,6 +346,22 @@ async function fetchAllPrices(assets) {
   return prices;
 }
 
+async function lookupIsin(isin) {
+  if (!isin || isin.trim().length < 8) return null;
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(isin.trim())}&quotesCount=3&newsCount=0`);
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (data.quotes?.length > 0) {
+      const q = data.quotes[0];
+      return { ticker: q.symbol, name: q.shortname || q.longname };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function showModal(html) {
   const ov = document.getElementById("modal-overlay");
   const ct = document.getElementById("modal-container");
@@ -393,6 +409,19 @@ function showAssetModal(asset, onSave) {
           <label>Name</label>
           <input type="text" id="a-name" value="${asset?.name||""}" required placeholder="e.g., Vanguard FTSE All-World">
         </div>
+        <div id="isin-fields" style="display:none">
+          <div class="form-group">
+            <label>ISIN <span style="color:var(--red)">*</span></label>
+            <input type="text" id="a-isin" value="${asset?.isin||""}" placeholder="IE00BK5BQT80" maxlength="12" style="text-transform:uppercase;letter-spacing:0.05em;font-family:var(--mono)">
+            <span class="form-hint" id="isin-status"></span>
+          </div>
+        </div>
+        <div id="stock-fields" style="display:none">
+          <div class="form-group">
+            <label>Ticker Symbol</label>
+            <input type="text" id="a-ticker" value="${asset?.ticker||""}" placeholder="Auto-detected from ISIN">
+          </div>
+        </div>
         <div id="crypto-fields" style="display:none">
           <div class="form-group">
             <label>Cryptocurrency</label>
@@ -402,18 +431,6 @@ function showAssetModal(asset, onSave) {
                 `<option value="${id}"${asset?.providerId===id?" selected":""}>${info.name} (${info.symbol})</option>`
               ).join("")}
             </select>
-          </div>
-        </div>
-        <div id="stock-fields" style="display:none">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Ticker Symbol</label>
-              <input type="text" id="a-ticker" value="${asset?.ticker||""}" placeholder="e.g., VWCE.DE">
-            </div>
-            <div class="form-group">
-              <label>ISIN (optional)</label>
-              <input type="text" id="a-isin" value="${asset?.isin||""}" placeholder="IE00BK5BQT80">
-            </div>
           </div>
         </div>
         <div class="form-group" id="platform-group">
@@ -438,6 +455,29 @@ function showAssetModal(asset, onSave) {
   document.getElementById("mc2").addEventListener("click", hideModal);
   const typeEl = document.getElementById("a-type");
   updateAssetFormFields(typeEl.value);
+
+  let isinTimer;
+  document.getElementById("a-isin")?.addEventListener("input", e => {
+    clearTimeout(isinTimer);
+    const statusEl = document.getElementById("isin-status");
+    statusEl.textContent = "";
+    const val = e.target.value.trim().toUpperCase();
+    if (val.length >= 10) {
+      statusEl.innerHTML = "<span style='color:var(--text-3)'>Looking up…</span>";
+      isinTimer = setTimeout(async () => {
+        const result = await lookupIsin(val);
+        if (result) {
+          const nameEl = document.getElementById("a-name");
+          const tickerEl = document.getElementById("a-ticker");
+          if (!nameEl.value) nameEl.value = result.name;
+          if (tickerEl && !tickerEl.value) tickerEl.value = result.ticker;
+          statusEl.innerHTML = `<span style="color:var(--green)">✓ ${result.ticker} — ${result.name}</span>`;
+        } else {
+          statusEl.innerHTML = "<span style='color:var(--text-3)'>No match found</span>";
+        }
+      }, 600);
+    }
+  });
   typeEl.addEventListener("change", e => updateAssetFormFields(e.target.value));
   document.getElementById("a-provid")?.addEventListener("change", e => {
     const info = CRYPTO_LIST[e.target.value];
@@ -453,6 +493,9 @@ function showAssetModal(asset, onSave) {
 }
 
 function updateAssetFormFields(type) {
+  const showIsin = type !== "manual";
+  document.getElementById("isin-fields").style.display = showIsin ? "block" : "none";
+  document.getElementById("a-isin").required = showIsin;
   document.getElementById("crypto-fields").style.display = type === "crypto" ? "block" : "none";
   document.getElementById("stock-fields").style.display = (type === "etf" || type === "stock") ? "block" : "none";
 }
@@ -466,6 +509,9 @@ function collectAssetFormData(asset) {
     platform: document.getElementById("a-platform").value || undefined,
     notes: document.getElementById("a-notes").value.trim() || undefined
   };
+  if (type !== "manual") {
+    data.isin = document.getElementById("a-isin").value.trim().toUpperCase() || undefined;
+  }
   if (type === "crypto") {
     const pid = document.getElementById("a-provid").value;
     if (pid) {
@@ -476,7 +522,6 @@ function collectAssetFormData(asset) {
   if (type === "etf" || type === "stock") {
     data.provider = "yahoo";
     data.ticker = document.getElementById("a-ticker").value.trim().toUpperCase() || undefined;
-    data.isin = document.getElementById("a-isin").value.trim() || undefined;
   }
   return data;
 }
