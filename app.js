@@ -119,6 +119,7 @@ function saveAssetValueSnapshots() {
   }
 }
 function savePortfolioSnapshot() {
+  if (!portfolio || !prices || Object.keys(prices).length === 0) return;
   const m = calcPortfolioMetrics(portfolio.assets, prices, getBaseCurrency());
   if (m.totalCurrentValue > 0) saveHistoryEntry(m.totalCurrentValue);
   saveAssetValueSnapshots();
@@ -1018,7 +1019,14 @@ function renderCharts(portfolio, prices, history) {
 function makeDoughnut(ctxId, labels, data, currency, chartRef) {
   const el = document.getElementById(ctxId); if (!el) return null;
   if (chartRef) chartRef.destroy();
-  if (!data.length) { el.parentElement.innerHTML = '<div class="chart-empty">No data to display</div>'; return null; }
+  if (!data.length) {
+    el.style.display='none';
+    const empId = ctxId+'-empty';
+    let emp = document.getElementById(empId);
+    if (!emp) { el.insertAdjacentHTML('afterend', `<div class="chart-empty" id="${empId}">No data to display</div>`); }
+    return null;
+  }
+  el.style.display=''; document.getElementById(ctxId+'-empty')?.remove();
   return new Chart(el, {
     type:"doughnut",
     data:{ labels, datasets:[{ data, backgroundColor:CHART_COLORS.slice(0,data.length), borderWidth:0, hoverOffset:8 }] },
@@ -1041,7 +1049,12 @@ function renderTypeChart(portfolio, prices, baseCurrency) {
   const ta = calcGroupAllocation(portfolio.assets, prices, baseCurrency, a=>a.type, t=>TYPE_LABELS[t]||t);
   const el = document.getElementById("type-chart"); if (!el) return;
   if (typeChart) typeChart.destroy();
-  if (!ta.length) { el.parentElement.innerHTML = '<div class="chart-empty">No data</div>'; return; }
+  if (!ta.length) {
+    el.style.display='none';
+    if (!document.getElementById('type-chart-empty')) el.insertAdjacentHTML('afterend', '<div class="chart-empty" id="type-chart-empty">No data</div>');
+    return;
+  }
+  el.style.display=''; document.getElementById('type-chart-empty')?.remove();
   typeChart = new Chart(el, {
     type:"bar",
     data:{ labels:ta.map(t=>t.label), datasets:[{ data:ta.map(t=>t.value), backgroundColor:CHART_COLORS.slice(0,ta.length), borderRadius:8, borderSkipped:false }] },
@@ -1059,7 +1072,12 @@ function renderPlatformChart(portfolio, prices, baseCurrency) {
 function renderEvoChart(history, baseCurrency) {
   const el = document.getElementById("evolution-chart"); if (!el) return;
   if (evoChart) evoChart.destroy();
-  if (!history?.length) { el.parentElement.innerHTML = '<div class="chart-empty">Portfolio history appears here after you refresh prices. Each refresh saves a snapshot.</div>'; return; }
+  if (!history?.length) {
+    el.style.display='none';
+    if (!document.getElementById('evo-chart-empty')) el.insertAdjacentHTML('afterend', '<div class="chart-empty" id="evo-chart-empty">Portfolio history will appear here after you refresh prices. Each refresh saves a snapshot.</div>');
+    return;
+  }
+  el.style.display=''; document.getElementById('evo-chart-empty')?.remove();
   const daily = {};
   for (const h of history) {
     const day = h.date.split("T")[0];
@@ -1089,13 +1107,15 @@ function renderAssetEvoChart(portfolio, baseCurrency) {
     `<option value="${a.id}"${a.id === prevSel ? " selected" : ""}>${a.name}</option>`
   ).join("");
   const assetId = sel.value || portfolio.assets[0]?.id;
-  if (!assetId) { el.parentElement.innerHTML = '<div class="chart-empty">Add assets and set prices to see value history.</div>'; return; }
+  if (!assetId) { el.style.display='none'; el.insertAdjacentHTML('afterend', '<div class="chart-empty" id="asset-evo-empty">Add assets and set prices to see value history.</div>'); return; }
+  el.style.display=''; document.getElementById('asset-evo-empty')?.remove();
   sel._selected = assetId;
   sel.value = assetId;
   const asset = portfolio.assets.find(a => a.id === assetId);
   if (!asset) return;
   const vh = asset.valueHistory || [];
-  if (vh.length < 2) { el.parentElement.innerHTML = '<div class="chart-empty">Not enough data points yet. Each price refresh or manual price update records a snapshot.</div>'; return; }
+  if (vh.length < 2) { el.style.display='none'; el.insertAdjacentHTML('afterend', '<div class="chart-empty" id="asset-evo-empty">Not enough data points yet. Each price refresh or manual price update records a snapshot.</div>'); return; }
+  el.style.display=''; document.getElementById('asset-evo-empty')?.remove();
   const daily = {};
   for (const h of vh) {
     const day = h.date.split("T")[0];
@@ -1112,11 +1132,13 @@ function renderAssetEvoChart(portfolio, baseCurrency) {
       scales:{ x:{grid:{display:false}, ticks:{color:"#8892b0",font:{size:11},maxTicksLimit:12}}, y:{grid:{color:"rgba(99,120,180,0.07)"}, ticks:{color:"#8892b0",font:{size:11},callback:v=>fmtCompact(v,baseCurrency)}, border:{display:false}} }
     }
   });
-  sel.addEventListener("change", () => {
+  if (sel._changeHandler) sel.removeEventListener("change", sel._changeHandler);
+  sel._changeHandler = () => {
     sel._selected = sel.value;
-    if (assetEvoChart) assetEvoChart.destroy();
+    if (assetEvoChart) { try { assetEvoChart.destroy(); } catch {} assetEvoChart = null; }
     renderAssetEvoChart(portfolio, baseCurrency);
-  }, { once: true });
+  };
+  sel.addEventListener("change", sel._changeHandler);
 }
 
 function showToast(msg, type = "info") {
@@ -1511,7 +1533,7 @@ function renderPriceHistory() {
     <div style="margin-top:16px">
       ${history.length === 0
         ? `<p style="text-align:center;color:var(--text-3);padding:40px">No manual price entries for this asset yet.</p>`
-        : `<table class="table">
+        : `<div class="table-wrapper"><div class="table-responsive"><table class="table">
             <thead>
               <tr>
                 <th>Date</th>
@@ -1527,7 +1549,7 @@ function renderPriceHistory() {
                   <td>${asset.currency || 'EUR'}</td>
                 </tr>`).join('')}
             </tbody>
-          </table>`
+          </table></div></div>`
       }
     </div>`;
   const sel = document.getElementById("ph-asset");
