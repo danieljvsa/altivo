@@ -180,7 +180,7 @@ To deploy:
 
 ### Portfolio View
 
-![Assets](./docs/assests.png)
+![Assets](./docs/assets.png)
 
 ### Mobile View
 
