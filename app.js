@@ -1562,6 +1562,7 @@ function renderPriceHistory() {
                 <th>Date</th>
                 <th>Price</th>
                 <th>Currency</th>
+                <th style="width:50px"></th>
               </tr>
             </thead>
             <tbody>
@@ -1570,6 +1571,7 @@ function renderPriceHistory() {
                   <td>${e.date}</td>
                   <td class="mono" style="font-weight:500">${fmtCurrency(e.price, asset.currency)}</td>
                   <td>${asset.currency || 'EUR'}</td>
+                  <td><button class="btn-icon btn-delete" data-ph-del="${asset.id}" data-ph-ts="${e.timestamp}" title="Delete entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>
                 </tr>`).join('')}
             </tbody>
           </table></div></div>`
@@ -1582,6 +1584,20 @@ function renderPriceHistory() {
       renderPriceHistory();
     });
   }
+  el.querySelectorAll("[data-ph-del]").forEach(btn => btn.addEventListener("click", () => {
+    const assetId = btn.dataset.phDel;
+    const ts = parseInt(btn.dataset.phTs);
+    const a = portfolio.assets.find(x => x.id === assetId);
+    if (!a || !a.priceHistory) return;
+    a.priceHistory = a.priceHistory.filter(e => e.timestamp !== ts);
+    if (a.priceHistory.length === 0) {
+      delete a.manualPrice;
+      delete a.manualPriceDate;
+      delete prices[a.id];
+    }
+    savePortfolio(portfolio);
+    renderPriceHistory();
+  }));
 }
 
 document.addEventListener("keydown", e => {
