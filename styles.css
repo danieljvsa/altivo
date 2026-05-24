@@ -778,8 +778,9 @@ nav.tabs {
   font-weight: 500;
 }
 
-.chart-container { position: relative; height: 260px; }
+.chart-container { position: relative; height: 260px; overflow: hidden; max-width: 100%; }
 .chart-container-tall { height: 300px; }
+.chart-container canvas { max-width: 100% !important; }
 .chart-empty {
   display: flex;
   align-items: center;
@@ -1263,6 +1264,7 @@ nav.tabs {
 /* ── 480px: most compact mode ── */
 @media (max-width: 480px) {
   .app { padding: 10px 10px 60px; }
+  .charts-grid { grid-template-columns: minmax(0, 1fr); }
 
   /* Logo: compact */
   .logo-icon { width: 30px; height: 30px; border-radius: 8px; }

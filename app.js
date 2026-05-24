@@ -1113,15 +1113,38 @@ function renderAssetEvoChart(portfolio, baseCurrency) {
   sel.value = assetId;
   const asset = portfolio.assets.find(a => a.id === assetId);
   if (!asset) return;
-  const vh = asset.valueHistory || [];
-  if (vh.length < 2) { el.style.display='none'; el.insertAdjacentHTML('afterend', '<div class="chart-empty" id="asset-evo-empty">Not enough data points yet. Each price refresh or manual price update records a snapshot.</div>'); return; }
-  el.style.display=''; document.getElementById('asset-evo-empty')?.remove();
+
+  // Collect data points from stored snapshots + transactions
+  const points = [];
+
+  // 1. Stored valueHistory snapshots
+  for (const h of (asset.valueHistory || [])) {
+    points.push({ date: h.date, value: h.value });
+  }
+
+  // 2. Derive from transactions: running quantity × pricePerUnit
+  const txs = (portfolio.transactions || [])
+    .filter(t => t.assetId === assetId)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  let runningQty = 0;
+  for (const tx of txs) {
+    if (tx.type === "buy") runningQty += tx.quantity;
+    else if (tx.type === "sell") runningQty -= tx.quantity;
+    if (runningQty > 0 && tx.pricePerUnit > 0) {
+      const val = convertToBase(runningQty * tx.pricePerUnit, tx.currency || asset.currency, baseCurrency);
+      points.push({ date: tx.date, value: val });
+    }
+  }
+
+  // Merge and deduplicate by day
   const daily = {};
-  for (const h of vh) {
-    const day = h.date.split("T")[0];
-    daily[day] = h.value;
+  for (const p of points) {
+    const day = typeof p.date === "string" ? p.date.split("T")[0] : p.date;
+    daily[day] = p.value;
   }
   const entries = Object.entries(daily).sort(([a],[b]) => a.localeCompare(b));
+  if (entries.length < 2) { el.style.display='none'; el.insertAdjacentHTML('afterend', '<div class="chart-empty" id="asset-evo-empty">Not enough data points yet. Add transactions or set a manual price.</div>'); return; }
+  el.style.display=''; document.getElementById('asset-evo-empty')?.remove();
   const labels = entries.map(([d]) => { const dt = new Date(d); return dt.toLocaleDateString("en-GB",{day:"2-digit",month:"short"}); });
   const values = entries.map(([,v]) => v);
   assetEvoChart = new Chart(el, {
