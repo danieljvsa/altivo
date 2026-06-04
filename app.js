@@ -522,9 +522,9 @@ function showAssetModal(asset, onSave) {
 }
 
 function updateAssetFormFields(type) {
-  const showIsin = type !== "manual";
-  document.getElementById("isin-fields").style.display = showIsin ? "block" : "none";
-  document.getElementById("a-isin").required = showIsin;
+  const noIsin = type === "manual" || type === "savings" || type === "p2p";
+  document.getElementById("isin-fields").style.display = noIsin ? "none" : "block";
+  document.getElementById("a-isin").required = !noIsin;
   document.getElementById("crypto-fields").style.display = type === "crypto" ? "block" : "none";
   document.getElementById("stock-fields").style.display = (type === "etf" || type === "stock") ? "block" : "none";
   document.getElementById("balance-field").style.display = (type === "savings" || type === "manual" || type === "p2p") ? "block" : "none";
@@ -539,7 +539,7 @@ function collectAssetFormData(asset) {
     platform: document.getElementById("a-platform").value || undefined,
     notes: document.getElementById("a-notes").value.trim() || undefined
   };
-  if (type !== "manual") {
+  if (type !== "manual" && type !== "savings" && type !== "p2p") {
     data.isin = document.getElementById("a-isin").value.trim().toUpperCase() || undefined;
   }
   if (type === "crypto") {
