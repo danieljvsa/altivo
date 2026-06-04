@@ -361,7 +361,7 @@ async function fetchAllPrices(assets) {
 
   for (const a of assets) {
     if (!(a.id in prices)) {
-      prices[a.id] = a.manualPrice ?? a.averageBuyPrice ?? getAssetPosition(a.id).avgBuyPrice ?? (a.type === "savings" || a.type === "manual" || a.type === "p2p" ? 1 : 0);
+      prices[a.id] = a.manualPrice ?? a.averageBuyPrice ?? (getAssetPosition(a.id).avgBuyPrice || (a.type === "savings" || a.type === "manual" || a.type === "p2p" ? 1 : 0));
     }
   }
 
