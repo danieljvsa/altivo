@@ -361,7 +361,7 @@ async function fetchAllPrices(assets) {
 
   for (const a of assets) {
     if (!(a.id in prices)) {
-      prices[a.id] = a.manualPrice ?? a.averageBuyPrice ?? getAssetPosition(a.id).avgBuyPrice ?? 0;
+      prices[a.id] = a.manualPrice ?? a.averageBuyPrice ?? getAssetPosition(a.id).avgBuyPrice ?? (a.type === "savings" || a.type === "manual" || a.type === "p2p" ? 1 : 0);
     }
   }
 
@@ -430,6 +430,13 @@ function showAssetModal(asset, onSave) {
         <div class="form-group">
           <label>Name</label>
           <input type="text" id="a-name" value="${asset?.name||""}" required placeholder="e.g., Vanguard FTSE All-World">
+        </div>
+        <div id="balance-field" style="display:none">
+          <div class="form-group">
+            <label>Current Balance</label>
+            <input type="number" id="a-balance" step="any" min="0" value="${asset?.quantity||""}" placeholder="0.00">
+            <span class="form-hint">Total amount saved or invested, no transaction tracking needed</span>
+          </div>
         </div>
         <div id="isin-fields" style="display:none">
           <div class="form-group">
@@ -520,6 +527,7 @@ function updateAssetFormFields(type) {
   document.getElementById("a-isin").required = showIsin;
   document.getElementById("crypto-fields").style.display = type === "crypto" ? "block" : "none";
   document.getElementById("stock-fields").style.display = (type === "etf" || type === "stock") ? "block" : "none";
+  document.getElementById("balance-field").style.display = (type === "savings" || type === "manual" || type === "p2p") ? "block" : "none";
 }
 
 function collectAssetFormData(asset) {
@@ -545,10 +553,15 @@ function collectAssetFormData(asset) {
     data.provider = "yahoo";
     data.ticker = document.getElementById("a-ticker").value.trim().toUpperCase() || undefined;
   }
+  if (type === "savings" || type === "manual" || type === "p2p") {
+    const bal = parseFloat(document.getElementById("a-balance").value);
+    if (!isNaN(bal) && bal > 0) data.quantity = bal;
+  }
   if (asset) {
     if (asset.priceHistory) data.priceHistory = asset.priceHistory;
     if (asset.manualPrice !== undefined) data.manualPrice = asset.manualPrice;
     if (asset.manualPriceDate) data.manualPriceDate = asset.manualPriceDate;
+    if (asset.valueHistory) data.valueHistory = asset.valueHistory;
   }
   return data;
 }
